@@ -19,8 +19,8 @@ const app = new App({
 // const chatAPI = new ChatGPTAPI({ apiKey: process.env.OPENAI_API_KEY });
 const chat = new ChatGPTUnofficialProxyAPI({
     accessToken: process.env.OPENAI_ACCESS_TOKEN!,
-    // apiReverseProxyUrl: process.env.API_REVERSE_PROXY_URL,
-    apiReverseProxyUrl: 'https://gpt.pawan.krd/backend-api/conversation',
+    apiReverseProxyUrl: process.env.API_REVERSE_PROXY_URL,
+    // apiReverseProxyUrl: 'https://gpt.pawan.krd/backend-api/conversation',
     debug: true
 })
 
