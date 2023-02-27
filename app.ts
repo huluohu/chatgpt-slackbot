@@ -4,7 +4,8 @@ import debounce from 'debounce-promise';
 
 dotenv.config()
 const openaiTimeout = process.env.OPENAI_TIME_OUT;
-
+let proxyMain = "https://chat.duti.tech/api/conversation";
+let proxySlave = "https://gpt.pawan.krd/backend-api/conversation";
 const {App} = require('@slack/bolt');
 
 // Initializes your app with your bot token and signing secret
@@ -13,13 +14,14 @@ const app = new App({
     signingSecret: process.env.SLACK_SIGNING_SECRET,
     appToken: process.env.SLACK_APP_TOKEN,
     socketMode: true,
-    port : 3002
+    port: 3002
 });
 
 // const chatAPI = new ChatGPTAPI({ apiKey: process.env.OPENAI_API_KEY });
 const chat = new ChatGPTUnofficialProxyAPI({
     accessToken: process.env.OPENAI_ACCESS_TOKEN!,
-    apiReverseProxyUrl: process.env.API_REVERSE_PROXY_URL,
+    apiReverseProxyUrl: proxyMain,
+    // apiReverseProxyUrl: process.env.API_REVERSE_PROXY_URL,
     // apiReverseProxyUrl: 'https://gpt.pawan.krd/backend-api/conversation',
     debug: true
 })
@@ -73,7 +75,7 @@ app.message(async ({message, say}) => {
             const answer = await chat.sendMessage(message.text, {
                 parentMessageId: previous.parentMessageId,
                 conversationId: previous.conversationId,
-                timeoutMs : Number(openaiTimeout),
+                timeoutMs: Number(openaiTimeout),
                 onProgress: async (answer) => {
                     // Real-time update
                     answerText = answer.text;
@@ -97,6 +99,9 @@ app.message(async ({message, say}) => {
         } catch (error) {
             await say("ERROR: Something went wrong, please try again after a while：" + JSON.stringify(error));
             console.log(error);
+            //交换代理
+            [proxyMain, proxySlave] = [proxySlave, proxyMain];
+            chat["_apiReverseProxyUrl"] = proxyMain;
         }
     }
 });
@@ -126,7 +131,7 @@ app.event('app_mention', async ({event, context, client, say}) => {
         const answer = await chat.sendMessage(question, {
             parentMessageId: parentMessageId,
             conversationId: conversationId,
-            timeoutMs : Number(openaiTimeout)
+            timeoutMs: Number(openaiTimeout)
         });
 
         if (answer.conversationId) {
@@ -145,7 +150,10 @@ app.event('app_mention', async ({event, context, client, say}) => {
         });
     } catch (error) {
         await say("ERROR: Something went wrong, please try again after a while：" + JSON.stringify(error));
-        console.log(error)
+        console.log(error);
+        //交换代理
+        [proxyMain, proxySlave] = [proxySlave, proxyMain];
+        chat["_apiReverseProxyUrl"] = proxyMain;
     }
 
 });
