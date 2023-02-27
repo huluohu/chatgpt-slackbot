@@ -153,5 +153,5 @@ app.event('app_mention', async ({event, context, client, say}) => {
 (async () => {
     await app.start();
 
-    console.log('⚡️ Bolt app is running at port 4000!');
+    console.log('⚡️ Bolt app is running at port 3002!');
 })();

@@ -5,6 +5,8 @@ ADD package.json yarn.lock /app/
 #RUN apt install chromium
 #RUN apt install chromium-browser
 #RUN export PUPPETEER_SKIP_DOWNLOAD='true'
+RUN npm install -g npm@9.5.1
+RUN npm install
 RUN yarn install
 ADD . /app
 EXPOSE 4005 3002
