@@ -14,12 +14,14 @@
   "license": "MIT",
   "dependencies": {
     "@slack/bolt": "^3.12.2",
-    "chatgpt": "^4.7.2",
+    "chatgpt": "^4.8.1",
     "debounce-promise": "^3.1.2",
     "delay": "^5.0.0",
     "dotenv-safe": "^8.2.0",
     "puppeteer": "^19.7.2",
-    "tsx": "^3.12.3",
+    "tsx": "^3.12.3"
+  },
+  "devDependencies": {
     "yarn": "^1.22.19"
   }
 }
