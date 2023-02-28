@@ -97,7 +97,7 @@ app.message(async ({message, say}) => {
                 payload: answer,
             });
         } catch (error) {
-            await say("ERROR: Something went wrong, please try again after a while：" + JSON.stringify(error));
+            await say("莫慌:简单说就是服务器招架不住了，你等一会再玩【" + JSON.stringify(error) + "】");
             console.log(error);
             //交换代理
             [proxyMain, proxySlave] = [proxySlave, proxyMain];
@@ -149,7 +149,7 @@ app.event('app_mention', async ({event, context, client, say}) => {
             text: answerText,
         });
     } catch (error) {
-        await say("ERROR: Something went wrong, please try again after a while：" + JSON.stringify(error));
+        await say("莫慌:简单说就是服务器招架不住了，你等一会再玩【" + JSON.stringify(error) + "】");
         console.log(error);
         //交换代理
         [proxyMain, proxySlave] = [proxySlave, proxyMain];
