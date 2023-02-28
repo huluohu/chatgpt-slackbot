@@ -4,8 +4,6 @@ import debounce from 'debounce-promise';
 
 dotenv.config()
 const openaiTimeout = process.env.OPENAI_TIME_OUT;
-let proxyMain = "https://chat.duti.tech/api/conversation";
-let proxySlave = "https://gpt.pawan.krd/backend-api/conversation";
 let proxyPool: any[] = [
     "https://chat.duti.tech/api/conversation",
     "https://gpt.pawan.krd/backend-api/conversation",
