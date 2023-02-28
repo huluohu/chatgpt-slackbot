@@ -6,6 +6,11 @@ dotenv.config()
 const openaiTimeout = process.env.OPENAI_TIME_OUT;
 let proxyMain = "https://chat.duti.tech/api/conversation";
 let proxySlave = "https://gpt.pawan.krd/backend-api/conversation";
+let proxyPool: any[] = [
+    "https://chat.duti.tech/api/conversation",
+    "https://gpt.pawan.krd/backend-api/conversation",
+    "https://server.chatgpt.yt/api/conversation"
+];
 const {App} = require('@slack/bolt');
 
 // Initializes your app with your bot token and signing secret
@@ -20,7 +25,7 @@ const app = new App({
 // const chatAPI = new ChatGPTAPI({ apiKey: process.env.OPENAI_API_KEY });
 const chat = new ChatGPTUnofficialProxyAPI({
     accessToken: process.env.OPENAI_ACCESS_TOKEN!,
-    apiReverseProxyUrl: proxyMain,
+    apiReverseProxyUrl: proxyPool[0],
     // apiReverseProxyUrl: process.env.API_REVERSE_PROXY_URL,
     // apiReverseProxyUrl: 'https://gpt.pawan.krd/backend-api/conversation',
     debug: true
@@ -43,6 +48,10 @@ const updateMessage = debounce(async ({channel, ts, text, payload}: any) => {
         } : undefined
     });
 }, 400);
+
+const resortProxyPool = function () {
+    proxyPool = proxyPool.slice(1).concat(proxyPool.slice(0, 1));
+}
 
 // Listens to incoming messages that contain "hello"
 app.message(async ({message, say}) => {
@@ -100,8 +109,10 @@ app.message(async ({message, say}) => {
             await say("莫慌:简单说就是服务器招架不住了，你等一会再玩【" + JSON.stringify(error) + "】");
             console.log(error);
             //交换代理
-            [proxyMain, proxySlave] = [proxySlave, proxyMain];
-            chat["_apiReverseProxyUrl"] = proxyMain;
+            //[proxyMain, proxySlave] = [proxySlave, proxyMain];
+            //重排代理
+            resortProxyPool();
+            chat["_apiReverseProxyUrl"] = proxyPool[0];
         }
     }
 });
@@ -152,8 +163,8 @@ app.event('app_mention', async ({event, context, client, say}) => {
         await say("莫慌:简单说就是服务器招架不住了，你等一会再玩【" + JSON.stringify(error) + "】");
         console.log(error);
         //交换代理
-        [proxyMain, proxySlave] = [proxySlave, proxyMain];
-        chat["_apiReverseProxyUrl"] = proxyMain;
+        resortProxyPool();
+        chat["_apiReverseProxyUrl"] = proxyPool[0];
     }
 
 });
