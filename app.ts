@@ -1,13 +1,16 @@
 import dotenv from 'dotenv-safe'
-import {ChatGPTUnofficialProxyAPI} from 'chatgpt'
+import {ChatGPTAPI, ChatGPTUnofficialProxyAPI, ChatMessage} from 'chatgpt'
 import debounce from 'debounce-promise';
 
 dotenv.config()
-const openaiTimeout = process.env.OPENAI_TIME_OUT;
+const openaiTimeout = Number(process.env.OPENAI_TIME_OUT) || 5000;
+const KEY_TYPE: string = "KEY";
+const TOKEN_TYPE: string = "TOKEN";
+let chatType = process.env.TYPE || "TOKEN";
 let proxyPool: any[] = [
-    "https://chat.duti.tech/api/conversation",
     "https://gpt.pawan.krd/backend-api/conversation",
-    "https://server.chatgpt.yt/api/conversation"
+    "https://server.chatgpt.yt/api/conversation",
+    "https://chat.duti.tech/api/conversation"
 ];
 const {App} = require('@slack/bolt');
 
@@ -18,16 +21,17 @@ const app = new App({
     appToken: process.env.SLACK_APP_TOKEN,
     socketMode: true,
     port: 3002,
-    developerMode:true,
+    developerMode: false,
 });
 
-// const chatAPI = new ChatGPTAPI({ apiKey: process.env.OPENAI_API_KEY });
-const chat = new ChatGPTUnofficialProxyAPI({
+const keyChat = new ChatGPTAPI({
+    apiKey: process.env.OPENAI_API_KEY,
+    debug: false
+});
+const tokenChat = new ChatGPTUnofficialProxyAPI({
     accessToken: process.env.OPENAI_ACCESS_TOKEN!,
     apiReverseProxyUrl: proxyPool[0],
-    // apiReverseProxyUrl: process.env.API_REVERSE_PROXY_URL,
-    // apiReverseProxyUrl: 'https://gpt.pawan.krd/backend-api/conversation',
-    debug: true
+    debug: false
 })
 
 // Save conversation id
@@ -48,6 +52,38 @@ const updateMessage = debounce(async ({channel, ts, text, payload}: any) => {
     });
 }, 400);
 
+async function sendChatAndUpdateMessage(type, event, parentMessageId, conversationId, replyMessage) {
+    const chat = type === KEY_TYPE ? keyChat : tokenChat;
+    console.log("the_chat_type:" + type);
+    const answer = await chat.sendMessage(event.text, {
+        parentMessageId: parentMessageId,
+        conversationId: conversationId,
+        timeoutMs: openaiTimeout,
+        onProgress: async (answer) => {
+            // Real-time update
+            // console.log('answer:' + answer.text + "\r\n");
+            await updateMessage({
+                channel: replyMessage.channel,
+                ts: replyMessage.ts,
+                text: answer.text,
+                payload: answer,
+            });
+        }
+    });
+    return Promise.resolve(answer);
+}
+
+async function sendChatOnly(type, question, parentMessageId, conversationId) {
+    const chat = type === KEY_TYPE ? keyChat : tokenChat;
+    console.log("the_chat_type:" + type);
+    const answer = await chat.sendMessage(question, {
+        parentMessageId: parentMessageId,
+        conversationId: conversationId,
+        timeoutMs: openaiTimeout
+    });
+    return Promise.resolve(answer);
+}
+
 const resortProxyPool = function () {
     // proxyPool = proxyPool.slice(1).concat(proxyPool.slice(0, 1));
     proxyPool.push(proxyPool.shift());
@@ -60,6 +96,23 @@ app.message(async ({message, say}) => {
 
     const isUserMessage = message.type === "message" && !message.subtype && !message.bot_id;
     if (isUserMessage && message.text && message.text !== "reset") {
+        if (message.text == "usekey") {
+            chatType = KEY_TYPE;
+            await say({
+                channel: message.channel,
+                text: '已设置KEY模式',
+            });
+            return;
+        }
+        if (message.text == "usetoken") {
+            chatType = TOKEN_TYPE;
+            await say({
+                channel: message.channel,
+                text: '已设置TOKEN模式',
+            });
+            return;
+        }
+
         const {messages} = await app.client.conversations.history({
             channel: message.channel,
             latest: message.ts,
@@ -73,36 +126,20 @@ app.message(async ({message, say}) => {
             conversationId: undefined
         };
 
-        const ms = await say({
+        const replyMessage = await say({
             channel: message.channel,
             text: ':thought_balloon:',
         });
 
-
-        let answerText: string;
         try {
-            const answer = await chat.sendMessage(message.text, {
-                parentMessageId: previous.parentMessageId,
-                conversationId: previous.conversationId,
-                timeoutMs: Number(openaiTimeout),
-                onProgress: async (answer) => {
-                    // Real-time update
-                    answerText = answer.text;
-                    await updateMessage({
-                        channel: ms.channel,
-                        ts: ms.ts,
-                        text: answerText,
-                        payload: answer,
-                    });
-                }
-            });
+            const answer = await sendChatAndUpdateMessage(chatType, message, previous.parentMessageId, previous.conversationId, replyMessage);
 
-            console.log("Response to @" + message.user + ":\n" + answerText)
+            console.log("Response to @" + message.user + ":\n" + answer.text)
 
             await updateMessage({
-                channel: ms.channel,
-                ts: ms.ts,
-                text: `${answerText} :end:`,
+                channel: replyMessage.channel,
+                ts: replyMessage.ts,
+                text: `${answer.text} :end:`,
                 payload: answer,
             });
         } catch (error) {
@@ -111,23 +148,13 @@ app.message(async ({message, say}) => {
             //交换代理
             //[proxyMain, proxySlave] = [proxySlave, proxyMain];
             //重排代理
-            resortProxyPool();
-            chat["_apiReverseProxyUrl"] = proxyPool[0];
+            if (chatType == TOKEN_TYPE) {
+                resortProxyPool();
+                tokenChat["_apiReverseProxyUrl"] = proxyPool[0];
+            }
         }
     }
 });
-
-app.message("reset", async ({message, say}) => {
-    console.log('reset：' + message.channel + "\r\n");
-    console.log('===========================================================\r\n');
-    conversationId = ""
-    parentMessageId = ""
-    await say({
-        channel: message.channel,
-        text: 'I reset your session',
-    });
-});
-
 
 // Listens to mention
 app.event('app_mention', async ({event, context, client, say}) => {
@@ -139,11 +166,7 @@ app.event('app_mention', async ({event, context, client, say}) => {
         // reply
         let answerText = "<@" + event.user + "> You asked:\n";
         answerText += ">" + question + "\n";
-        const answer = await chat.sendMessage(question, {
-            parentMessageId: parentMessageId,
-            conversationId: conversationId,
-            timeoutMs: Number(openaiTimeout)
-        });
+        const answer = await sendChatOnly(chatType, question, parentMessageId, conversationId);
 
         if (answer.conversationId) {
             conversationId = answer.conversationId;
@@ -163,10 +186,23 @@ app.event('app_mention', async ({event, context, client, say}) => {
         await say("别慌，简单说就是服务器招架不住了，你等一会再玩。【" + JSON.stringify(error) + "】");
         console.log(error);
         //交换代理
-        resortProxyPool();
-        chat["_apiReverseProxyUrl"] = proxyPool[0];
+        if (chatType == TOKEN_TYPE) {
+            resortProxyPool();
+            tokenChat["_apiReverseProxyUrl"] = proxyPool[0];
+        }
     }
 
+});
+
+app.message("reset", async ({message, say}) => {
+    console.log('reset：' + message.channel + "\r\n");
+    console.log('===========================================================\r\n');
+    conversationId = ""
+    parentMessageId = ""
+    await say({
+        channel: message.channel,
+        text: 'I reset your session',
+    });
 });
 
 (async () => {
