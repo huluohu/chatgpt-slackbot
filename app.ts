@@ -17,7 +17,8 @@ const app = new App({
     signingSecret: process.env.SLACK_SIGNING_SECRET,
     appToken: process.env.SLACK_APP_TOKEN,
     socketMode: true,
-    port: 3002
+    port: 3002,
+    developerMode:true,
 });
 
 // const chatAPI = new ChatGPTAPI({ apiKey: process.env.OPENAI_API_KEY });
