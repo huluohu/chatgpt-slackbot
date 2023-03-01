@@ -91,119 +91,116 @@ const resortProxyPool = function () {
 
 // Listens to incoming messages that contain "hello"
 app.message(async ({message, say}) => {
-    console.log('on_message:' + JSON.stringify(message) + "\r\n");
+    console.log(`on_message: ${JSON.stringify(message)}\r\n`);
     console.log('===========================================================\r\n');
 
-    const isUserMessage = message.type === "message" && !message.subtype && !message.bot_id;
-    if (isUserMessage && message.text && message.text !== "reset") {
-        if (message.text == "usekey") {
-            chatType = KEY_TYPE;
-            await say({
-                channel: message.channel,
-                text: '已设置KEY模式',
-            });
-            return;
-        }
-        if (message.text == "usetoken") {
-            chatType = TOKEN_TYPE;
-            await say({
-                channel: message.channel,
-                text: '已设置TOKEN模式',
-            });
-            return;
-        }
-
-        const {messages} = await app.client.conversations.history({
-            channel: message.channel,
-            latest: message.ts,
-            inclusive: true,
-            include_all_metadata: true,
-            limit: 2
-        });
-
-        const previous = (messages || [])[1]?.metadata?.event_payload as any || {
-            parentMessageId: undefined,
-            conversationId: undefined
-        };
-
-        const replyMessage = await say({
-            channel: message.channel,
-            text: ':thought_balloon:',
-        });
-
-        try {
-            const answer = await sendChatAndUpdateMessage(chatType, message, previous.parentMessageId, previous.conversationId, replyMessage);
-
-            console.log("Response to @" + message.user + ":\n" + answer.text)
-
-            await updateMessage({
-                channel: replyMessage.channel,
-                ts: replyMessage.ts,
-                text: `${answer.text} :end:`,
-                payload: answer,
-            });
-        } catch (error) {
-            await say("别慌，简单说就是服务器招架不住了，你等一会再玩。【" + JSON.stringify(error) + "】");
-            console.log(error);
-            //交换代理
-            //[proxyMain, proxySlave] = [proxySlave, proxyMain];
-            //重排代理
-            if (chatType == TOKEN_TYPE) {
-                resortProxyPool();
-                tokenChat["_apiReverseProxyUrl"] = proxyPool[0];
-            }
-        }
+    //非正常消息
+    if (message.type !== "message" || message.subtype || message.bot_id || !message.text || message.text === "reset") {
+        return;
     }
-});
 
-// Listens to mention
-app.event('app_mention', async ({event, context, client, say}) => {
-    console.log('on_app_mention:' + JSON.stringify(event) + "\r\n");
-    console.log('===========================================================\r\n');
-    const question = event.text.replace(/(?:\s)<@[^, ]*|(?:^)<@[^, ]*/, '')
+    async function setChatType(type, channel) {
+        chatType = type;
+        await say({
+            channel,
+            text: `已设置${type === KEY_TYPE ? "KEY" : "TOKEN"}模式`,
+        });
+    }
+
+    // 设置聊天模式
+    if (message.text === "usekey" || message.text === "usetoken") {
+        await setChatType(message.text === "usekey" ? KEY_TYPE : TOKEN_TYPE, message.channel);
+        return;
+    }
+
+    //获取上一条消息
+    const {messages} = await app.client.conversations.history({
+        channel: message.channel,
+        latest: message.ts,
+        inclusive: true,
+        include_all_metadata: true,
+        limit: 2
+    });
+
+    const previous = messages?.[1]?.metadata?.event_payload ?? {
+        parentMessageId: undefined,
+        conversationId: undefined
+    };
+
+    // 发送回复消息
+    const replyMessage = await say({
+        channel: message.channel,
+        text: ':thought_balloon:',
+    });
+
 
     try {
-        // reply
-        let answerText = "<@" + event.user + "> You asked:\n";
-        answerText += ">" + question + "\n";
-        const answer = await sendChatOnly(chatType, question, parentMessageId, conversationId);
-
-        if (answer.conversationId) {
-            conversationId = answer.conversationId;
-        }
-
-        if (answer.id) {
-            parentMessageId = answer.id;
-        }
-
-        answerText += answer.text;
-
-        await say({
-            channel: event.channel,
-            text: answerText,
+        // 发送聊天消息并更新回复消息
+        const answer = await sendChatAndUpdateMessage(chatType, message, previous.parentMessageId, previous.conversationId, replyMessage);
+        console.log(`Response to @${message.user}:\n${answer.text}`);
+        await updateMessage({
+            channel: replyMessage.channel,
+            ts: replyMessage.ts,
+            text: `${answer.text} :end:`,
+            payload: answer,
         });
     } catch (error) {
-        await say("别慌，简单说就是服务器招架不住了，你等一会再玩。【" + JSON.stringify(error) + "】");
         console.log(error);
-        //交换代理
+
         if (chatType == TOKEN_TYPE) {
             resortProxyPool();
             tokenChat["_apiReverseProxyUrl"] = proxyPool[0];
         }
-    }
 
+        const friendlyErrorMsg = '别慌，简单说就是服务器招架不住了，你等一会再玩。';
+        await say(friendlyErrorMsg);
+    }
 });
 
 app.message("reset", async ({message, say}) => {
-    console.log('reset：' + message.channel + "\r\n");
+    const {channel} = message;
+    console.log('reset：${channel} \r\n');
     console.log('===========================================================\r\n');
-    conversationId = ""
-    parentMessageId = ""
+    resetSession();
     await say({
         channel: message.channel,
         text: 'I reset your session',
     });
 });
+
+
+// Listens to mention
+app.event('app_mention', async ({event, context, client, say}) => {
+    console.log(`on_mention: ${JSON.stringify(event)}\r\n`);
+    console.log('===========================================================\r\n');
+    const question = event.text.replace(/(?:\s)<@[^, ]*|(?:^)<@[^, ]*/, '')
+
+    try {
+        const { text, conversationId: newConversationId, id: newParentMessageId } = await sendChatOnly(chatType, question, parentMessageId, conversationId);
+        conversationId = newConversationId || conversationId;
+        parentMessageId = newParentMessageId || parentMessageId;
+        await say({
+            channel: event.channel,
+            text: `<@${event.user}> You asked:\n>${question}\n${text}`,
+        });
+    } catch (error) {
+        console.log(error);
+
+        if (chatType == TOKEN_TYPE) {
+            resortProxyPool();
+            tokenChat["_apiReverseProxyUrl"] = proxyPool[0];
+        }
+
+        const friendlyErrorMsg = '别慌，简单说就是服务器招架不住了，你等一会再玩。';
+        await say(friendlyErrorMsg);
+    }
+
+});
+
+function resetSession() {
+    conversationId = ""
+    parentMessageId = ""
+}
 
 (async () => {
     await app.start();
