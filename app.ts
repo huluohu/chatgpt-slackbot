@@ -48,7 +48,8 @@ const updateMessage = debounce(async ({channel, ts, text, payload}: any) => {
 }, 400);
 
 const resortProxyPool = function () {
-    proxyPool = proxyPool.slice(1).concat(proxyPool.slice(0, 1));
+    // proxyPool = proxyPool.slice(1).concat(proxyPool.slice(0, 1));
+    proxyPool.push(proxyPool.shift());
 }
 
 // Listens to incoming messages that contain "hello"
@@ -104,7 +105,7 @@ app.message(async ({message, say}) => {
                 payload: answer,
             });
         } catch (error) {
-            await say("莫慌:简单说就是服务器招架不住了，你等一会再玩【" + JSON.stringify(error) + "】");
+            await say("别慌，简单说就是服务器招架不住了，你等一会再玩。【" + JSON.stringify(error) + "】");
             console.log(error);
             //交换代理
             //[proxyMain, proxySlave] = [proxySlave, proxyMain];
@@ -158,7 +159,7 @@ app.event('app_mention', async ({event, context, client, say}) => {
             text: answerText,
         });
     } catch (error) {
-        await say("莫慌:简单说就是服务器招架不住了，你等一会再玩【" + JSON.stringify(error) + "】");
+        await say("别慌，简单说就是服务器招架不住了，你等一会再玩。【" + JSON.stringify(error) + "】");
         console.log(error);
         //交换代理
         resortProxyPool();
