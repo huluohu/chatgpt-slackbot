@@ -19,7 +19,9 @@
     "delay": "^5.0.0",
     "dotenv-safe": "^8.2.0",
     "puppeteer": "^19.7.2",
-    "tsx": "^3.12.3"
+    "tsx": "^3.12.3",
+    "https-proxy-agent": "^5.0.1",
+    "node-fetch": "^3.3.0"
   },
   "devDependencies": {
     "yarn": "^1.22.19"

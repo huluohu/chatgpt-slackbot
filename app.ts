@@ -4,6 +4,7 @@ import debounce from 'debounce-promise';
 
 dotenv.config()
 const openaiTimeout = Number(process.env.OPENAI_TIME_OUT) || 5000;
+const openaiProxy = process.env.OPENAI_PROXY;
 const KEY_TYPE: string = "KEY";
 const TOKEN_TYPE: string = "TOKEN";
 let chatType = process.env.TYPE || "TOKEN";
@@ -23,6 +24,21 @@ const app = new App({
     port: 3002,
     developerMode: false,
 });
+
+const api = new ChatGPTAPI({
+  fetch: (url, options = {}) => {
+        const defaultOptions = {
+            agent: require('https-proxy-agent')(openaiProxy)
+        };
+
+        const mergedOptions = {
+            ...defaultOptions,
+            ...options
+        };
+
+        return require('node-fetch').default(url, mergedOptions);
+    }
+})
 
 const keyChat = new ChatGPTAPI({
     apiKey: process.env.OPENAI_API_KEY,
