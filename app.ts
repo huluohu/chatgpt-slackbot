@@ -50,7 +50,7 @@ const keyChat = new ChatGPTAPI({
 //     debug: chatDebug
 // });
 const tokenChat = new ChatGPTUnofficialProxyAPI({
-    accessToken: process.env.OPENAI_ACCESS_TOKEN!,
+    accessToken: process.env.OPENAI_ACCESS_TOKEN || "",
     apiReverseProxyUrl: proxyPool[0],
     debug: chatDebug
 })
