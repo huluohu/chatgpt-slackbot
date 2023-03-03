@@ -31,6 +31,7 @@ const app = new App({
 const keyChat = new ChatGPTAPI({
     apiKey: process.env.OPENAI_API_KEY || "",
     debug: chatDebug,
+
     fetch: openaiProxy ? (url, options = {}) => {
         const defaultOptions = {
             agent: require('https-proxy-agent')(openaiProxy)
