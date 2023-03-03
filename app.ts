@@ -115,7 +115,7 @@ async function sendChatOnChannleProgress(type, event, question, parentMessageId,
     });
 
     conversationId = answer.conversationId || conversationId;
-    parentMessageId = answer.parentMessageId || parentMessageId;
+    parentMessageId = answer.id || parentMessageId;
     return Promise.resolve(answer);
 }
 
