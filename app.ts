@@ -74,10 +74,10 @@ const updateMessage = debounce(async ({channel, ts, text, payload}: any) => {
     });
 }, 400);
 
-async function sendChatAndUpdateMessage(type, event, parentMessageId, conversationId, replyMessage) {
+async function sendChatOnAppProgress(type, message, parentMessageId, conversationId, reply) {
     const chat = type === KEY_TYPE ? keyChat : tokenChat;
     console.log("the_chat_type:" + type);
-    const answer = await chat.sendMessage(event.text, {
+    const answer = await chat.sendMessage(message.text, {
         parentMessageId: parentMessageId,
         conversationId: conversationId,
         timeoutMs: openaiTimeout,
@@ -85,8 +85,8 @@ async function sendChatAndUpdateMessage(type, event, parentMessageId, conversati
             // Real-time update
             // console.log('answer:' + answer.text + "\r\n");
             await updateMessage({
-                channel: replyMessage.channel,
-                ts: replyMessage.ts,
+                channel: reply.channel,
+                ts: reply.ts,
                 text: answer.text,
                 payload: answer,
             });
@@ -94,6 +94,31 @@ async function sendChatAndUpdateMessage(type, event, parentMessageId, conversati
     });
     return Promise.resolve(answer);
 }
+
+async function sendChatOnChannleProgress(type, event, question, parentMessageId, conversationId, reply) {
+    const chat = type === KEY_TYPE ? keyChat : tokenChat;
+    console.log("the_chat_type:" + type);
+    const answer = await chat.sendMessage(question, {
+        parentMessageId: parentMessageId,
+        conversationId: conversationId,
+        timeoutMs: openaiTimeout,
+        onProgress: async (answer) => {
+            // Real-time update
+            // console.log('answer:' + answer.text + "\r\n");
+            await updateMessage({
+                channel: reply.channel,
+                ts: reply.ts,
+                text: `<@${event.user}> You asked:\n>${question}\n${answer.text}`,
+                payload: answer,
+            });
+        }
+    });
+
+    conversationId = answer.conversationId || conversationId;
+    parentMessageId = answer.parentMessageId || parentMessageId;
+    return Promise.resolve(answer);
+}
+
 
 async function sendChatOnly(type, question, parentMessageId, conversationId) {
     const chat = type === KEY_TYPE ? keyChat : tokenChat;
@@ -150,7 +175,7 @@ app.message(async ({message, say}) => {
     };
 
     // 发送回复消息
-    const replyMessage = await say({
+    const reply = await say({
         channel: message.channel,
         text: ':thought_balloon:',
     });
@@ -158,11 +183,11 @@ app.message(async ({message, say}) => {
 
     try {
         // 发送聊天消息并更新回复消息
-        const answer = await sendChatAndUpdateMessage(chatType, message, previous.parentMessageId, previous.conversationId, replyMessage);
+        const answer = await sendChatOnAppProgress(chatType, message, previous.parentMessageId, previous.conversationId, reply);
         console.log(`Response to @${message.user}:\n${answer.text}`);
         await updateMessage({
-            channel: replyMessage.channel,
-            ts: replyMessage.ts,
+            channel: reply.channel,
+            ts: reply.ts,
             text: `${answer.text} :end:`,
             payload: answer,
         });
@@ -198,17 +223,29 @@ app.event('app_mention', async ({event, context, client, say}) => {
     const question = event.text.replace(/(?:\s)<@[^, ]*|(?:^)<@[^, ]*/, '')
 
     try {
-        const {
-            text,
-            conversationId: newConversationId,
-            id: newParentMessageId
-        } = await sendChatOnly(chatType, question, parentMessageId, conversationId);
-        conversationId = newConversationId || conversationId;
-        parentMessageId = newParentMessageId || parentMessageId;
-        await say({
+        const reply = await say({
             channel: event.channel,
-            text: `<@${event.user}> You asked:\n>${question}\n${text}`,
+            text: ':thought_balloon:',
         });
+
+        const answer = await sendChatOnChannleProgress(chatType, event,question, parentMessageId, conversationId, reply);
+        await updateMessage({
+            channel: reply.channel,
+            ts: reply.ts,
+            text: `<@${event.user}> You asked:\n>${question}\n${answer.text} :end:`,
+            payload: answer,
+        });
+        // const {
+        //     text,
+        //     conversationId: newConversationId,
+        //     id: newParentMessageId
+        // } = await sendChatOnly(chatType, question, parentMessageId, conversationId);
+        // conversationId = newConversationId || conversationId;
+        // parentMessageId = newParentMessageId || parentMessageId;
+        // await say({
+        //     channel: event.channel,
+        //     text: `<@${event.user}> You asked:\n>${question}\n${text}`,
+        // });
     } catch (error) {
         console.log(error);
 
