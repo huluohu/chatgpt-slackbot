@@ -3,8 +3,11 @@ import {ChatGPTAPI, ChatGPTUnofficialProxyAPI, ChatMessage} from 'chatgpt'
 import debounce from 'debounce-promise';
 
 dotenv.config()
+// process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '0';
+// const nodeFetch = require('node-fetch');
 const openaiTimeout = Number(process.env.OPENAI_TIME_OUT) || 5000;
-const openaiProxy = process.env.OPENAI_PROXY;
+const openaiProxy = process.env.OPENAI_HTTP_PROXY;
+const chatDebug = Boolean(process.env.CHAT_DEBUG) || true;
 const KEY_TYPE: string = "KEY";
 const TOKEN_TYPE: string = "TOKEN";
 let chatType = process.env.TYPE || "TOKEN";
@@ -25,8 +28,10 @@ const app = new App({
     developerMode: false,
 });
 
-const api = new ChatGPTAPI({
-  fetch: (url, options = {}) => {
+const keyChat = new ChatGPTAPI({
+    apiKey: process.env.OPENAI_API_KEY || "",
+    debug: chatDebug,
+    fetch: openaiProxy ? (url, options = {}) => {
         const defaultOptions = {
             agent: require('https-proxy-agent')(openaiProxy)
         };
@@ -37,17 +42,17 @@ const api = new ChatGPTAPI({
         };
 
         return require('node-fetch').default(url, mergedOptions);
-    }
+    } : fetch
 })
 
-const keyChat = new ChatGPTAPI({
-    apiKey: process.env.OPENAI_API_KEY,
-    debug: false
-});
+// const keyChat = new ChatGPTAPI({
+//     apiKey: process.env.OPENAI_API_KEY,
+//     debug: chatDebug
+// });
 const tokenChat = new ChatGPTUnofficialProxyAPI({
     accessToken: process.env.OPENAI_ACCESS_TOKEN!,
     apiReverseProxyUrl: proxyPool[0],
-    debug: false
+    debug: chatDebug
 })
 
 // Save conversation id
@@ -192,7 +197,11 @@ app.event('app_mention', async ({event, context, client, say}) => {
     const question = event.text.replace(/(?:\s)<@[^, ]*|(?:^)<@[^, ]*/, '')
 
     try {
-        const { text, conversationId: newConversationId, id: newParentMessageId } = await sendChatOnly(chatType, question, parentMessageId, conversationId);
+        const {
+            text,
+            conversationId: newConversationId,
+            id: newParentMessageId
+        } = await sendChatOnly(chatType, question, parentMessageId, conversationId);
         conversationId = newConversationId || conversationId;
         parentMessageId = newParentMessageId || parentMessageId;
         await say({
