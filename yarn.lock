@@ -438,10 +438,10 @@ chalk@^2.0.0:
     escape-string-regexp "^1.0.5"
     supports-color "^5.3.0"
 
-chatgpt@^5.0.5:
-  version "5.0.5"
-  resolved "https://registry.npmjs.org/chatgpt/-/chatgpt-5.0.5.tgz"
-  integrity sha512-86IlhtgHKDOvV+Hl4DLUOKZ354OH784ciI8xxbM4pmfzewQCP5VnjI0yb/nCVKAjyerFdIFHpcWdw2TVdhlcVw==
+chatgpt@^5.0.7:
+  version "5.0.7"
+  resolved "https://registry.npmjs.org/chatgpt/-/chatgpt-5.0.7.tgz"
+  integrity sha512-wy69++JDNS0xKi+6rP+HDOByXBafQIVynHnlQw09apuDntGSKfwBRY902N8Q7/ZFU/XET+8NpJiio2iI69IWYw==
   dependencies:
     "@dqbd/tiktoken" "^0.4.0"
     cac "^6.7.14"
