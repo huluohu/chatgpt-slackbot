@@ -14,14 +14,15 @@
   "license": "MIT",
   "dependencies": {
     "@slack/bolt": "^3.12.2",
-    "chatgpt": "^5.0.7",
+    "chatgpt": "^5.0.8",
     "debounce-promise": "^3.1.2",
     "delay": "^5.0.0",
     "dotenv-safe": "^8.2.0",
     "puppeteer": "^19.7.2",
     "tsx": "^3.12.3",
     "https-proxy-agent": "^5.0.1",
-    "node-fetch": "^3.3.0"
+    "node-fetch": "^3.3.0",
+    "html-to-text": "^9.0.4"
   },
   "devDependencies": {
     "yarn": "^1.22.19"

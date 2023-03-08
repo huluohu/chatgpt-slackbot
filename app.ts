@@ -1,21 +1,31 @@
 import dotenv from 'dotenv-safe'
 import {ChatGPTAPI, ChatGPTUnofficialProxyAPI, ChatMessage} from 'chatgpt'
 import debounce from 'debounce-promise';
+import {compile} from 'html-to-text';
 
-dotenv.config()
+dotenv.config();
 // process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '0';
 // const nodeFetch = require('node-fetch');
 const openaiTimeout = Number(process.env.OPENAI_TIME_OUT) || 5000;
 const openaiProxy = process.env.OPENAI_HTTP_PROXY;
 const chatDebug = Boolean(process.env.CHAT_DEBUG) || true;
+const googleApiKey = process.env.GOOGLE_API_KEY || "";
+const googleSearchId = process.env.GOOGLE_SEARCH_ID || "";
 const KEY_TYPE: string = "KEY";
 const TOKEN_TYPE: string = "TOKEN";
+let openAIEnableInternet = Boolean(process.env.OPENAI_ENABLE_INTERNET) || false;
 let chatType = process.env.TYPE || "TOKEN";
-let proxyPool: any[] = [
+let reversePool: any[] = [
     "https://gpt.pawan.krd/backend-api/conversation",
     "https://server.chatgpt.yt/api/conversation",
     "https://chat.duti.tech/api/conversation"
 ];
+
+//如果单独提供了反代，则加到第一个
+if (process.env.OPENAI_REVERSE_EXTRA) {
+    reversePool.unshift(process.env.OPENAI_REVERSE_EXTRA);
+}
+
 const {App} = require('@slack/bolt');
 
 // Initializes your app with your bot token and signing secret
@@ -52,7 +62,7 @@ const keyChat = new ChatGPTAPI({
 // });
 const tokenChat = new ChatGPTUnofficialProxyAPI({
     accessToken: process.env.OPENAI_ACCESS_TOKEN || "",
-    apiReverseProxyUrl: proxyPool[0],
+    apiReverseProxyUrl: reversePool[0],
     debug: chatDebug
 })
 
@@ -74,10 +84,10 @@ const updateMessage = debounce(async ({channel, ts, text, payload}: any) => {
     });
 }, 400);
 
-async function sendChatOnAppProgress(type, message, parentMessageId, conversationId, reply) {
+async function sendChatOnAppProgress(type, prompt, parentMessageId, conversationId, reply) {
     const chat = type === KEY_TYPE ? keyChat : tokenChat;
     console.log("the_chat_type:" + type);
-    const answer = await chat.sendMessage(message.text, {
+    const answer = await chat.sendMessage(prompt, {
         parentMessageId: parentMessageId,
         conversationId: conversationId,
         timeoutMs: openaiTimeout,
@@ -131,10 +141,56 @@ async function sendChatOnly(type, question, parentMessageId, conversationId) {
     return Promise.resolve(answer);
 }
 
+async function getGoogleSearchFirstResultText(searchTerm) {
+    try {
+        const response = await fetch(
+            `https://www.googleapis.com/customsearch/v1?key=${googleApiKey}&cx=${googleSearchId}&q=${searchTerm}`
+        );
+
+        const data = await response.json();
+        const [firstpage, ...remainingPages] = data.items;
+        const urlToCheck = firstpage.link;
+        const htmlString = await fetch(urlToCheck);
+        let context = html2Text(await htmlString.text());
+        context += remainingPages
+            .reduce((allPages, currentPage) => `${allPages} ${currentPage.snippet}`, "")
+            .replaceAll("...", " "); // Remove "..." from Google snippet results;
+
+        // Note: we must stay below the max token amount of OpenAI's API.
+        // Max token amount: 4096, 1 token ~= 4 chars in English
+        // Hence, we should roughly ensure we stay below 10,000 characters for the input
+        // and leave the remaining the tokens for the answer.
+        // - https://help.openai.com/en/articles/4936856-what-are-tokens-and-how-to-count-them
+        // - https://platform.openai.com/docs/api-reference/chat/create
+        context = context
+            .replaceAll("\n", " ") // Remove any new lines from raw HTML of first page
+            .trim()
+            .substring(0, 10000);
+
+        return context;
+    } catch (error) {
+        console.error(error);
+        return undefined;
+    }
+}
+
 const resortProxyPool = function () {
     // proxyPool = proxyPool.slice(1).concat(proxyPool.slice(0, 1));
-    proxyPool.push(proxyPool.shift());
+    reversePool.push(reversePool.shift());
 }
+
+const html2Text = compile({
+    preserveNewlines: false,
+    wordwrap: false,
+    // The main content of a website will typically be found in the main element
+    baseElements: {selectors: ["main"]},
+    selectors: [
+        {
+            selector: "a",
+            options: {ignoreHref: true},
+        },
+    ],
+});
 
 // Listens to incoming messages that contain "hello"
 app.message(async ({message, say}) => {
@@ -154,10 +210,34 @@ app.message(async ({message, say}) => {
         });
     }
 
+    async function SetEnableInternet(enable, channel) {
+        openAIEnableInternet = enable;
+        await say({
+            channel,
+            text: `已${openAIEnableInternet ? "开启联网" : "关闭联网"}能力`,
+        });
+    }
+
     // 设置聊天模式
     if (message.text === "usekey" || message.text === "usetoken") {
         await setChatType(message.text === "usekey" ? KEY_TYPE : TOKEN_TYPE, message.channel);
         return;
+    }
+
+    // 设置聊天模式
+    if (message.text === "ointernet" || message.text === "cinternet") {
+        await SetEnableInternet(message.text === "ointernet" ? true : false, message.channel);
+        return;
+    }
+
+    let prompt = message.text;
+    //从搜索引擎中搜索
+    if (openAIEnableInternet) {
+        const searchText = await getGoogleSearchFirstResultText(prompt);
+        console.log(`searchText: ${searchText} `);
+        if (searchText) {
+            prompt = `With the information in the assistant's last message, answer this: ${searchText}`;
+        }
     }
 
     //获取上一条消息
@@ -183,7 +263,7 @@ app.message(async ({message, say}) => {
 
     try {
         // 发送聊天消息并更新回复消息
-        const answer = await sendChatOnAppProgress(chatType, message, previous.parentMessageId, previous.conversationId, reply);
+        const answer = await sendChatOnAppProgress(chatType, prompt, previous.parentMessageId, previous.conversationId, reply);
         console.log(`Response to @${message.user}:\n${answer.text}`);
         await updateMessage({
             channel: reply.channel,
@@ -196,7 +276,7 @@ app.message(async ({message, say}) => {
 
         if (chatType == TOKEN_TYPE) {
             resortProxyPool();
-            tokenChat["_apiReverseProxyUrl"] = proxyPool[0];
+            tokenChat["_apiReverseProxyUrl"] = reversePool[0];
         }
 
         const friendlyErrorMsg = '别慌，简单说就是服务器招架不住了，你等一会再玩。';
@@ -228,7 +308,7 @@ app.event('app_mention', async ({event, context, client, say}) => {
             text: ':thought_balloon:',
         });
 
-        const answer = await sendChatOnChannleProgress(chatType, event,question, parentMessageId, conversationId, reply);
+        const answer = await sendChatOnChannleProgress(chatType, event, question, parentMessageId, conversationId, reply);
         await updateMessage({
             channel: reply.channel,
             ts: reply.ts,
@@ -251,7 +331,7 @@ app.event('app_mention', async ({event, context, client, say}) => {
 
         if (chatType == TOKEN_TYPE) {
             resortProxyPool();
-            tokenChat["_apiReverseProxyUrl"] = proxyPool[0];
+            tokenChat["_apiReverseProxyUrl"] = reversePool[0];
         }
 
         const friendlyErrorMsg = '别慌，简单说就是服务器招架不住了，你等一会再玩。';
