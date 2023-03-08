@@ -4,8 +4,6 @@ import debounce from 'debounce-promise';
 import {compile} from 'html-to-text';
 
 dotenv.config();
-// process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '0';
-// const nodeFetch = require('node-fetch');
 const openaiTimeout = Number(process.env.OPENAI_TIME_OUT) || 5000;
 const openaiProxy = process.env.OPENAI_HTTP_PROXY;
 const chatDebug = Boolean(process.env.CHAT_DEBUG) || true;
