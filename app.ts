@@ -4,19 +4,19 @@ import debounce from 'debounce-promise';
 import {compile} from 'html-to-text';
 
 dotenv.config();
-const openaiTimeout = Number(process.env.OPENAI_TIME_OUT) || 5000;
-const openaiProxy = process.env.OPENAI_HTTP_PROXY;
-const chatDebug = Boolean(process.env.CHAT_DEBUG) || true;
-const googleApiKey = process.env.GOOGLE_API_KEY || "";
-const googleSearchId = process.env.GOOGLE_SEARCH_ID || "";
 const KEY_TYPE: string = "KEY";
 const TOKEN_TYPE: string = "TOKEN";
-let openAIEnableInternet = Boolean(process.env.OPENAI_ENABLE_INTERNET) || false;
+const openaiTimeout = Number(process.env.OPENAI_TIME_OUT) || 5000;
+const openaiProxy = process.env.OPENAI_HTTP_PROXY;
+const chatDebug = process.env.CHAT_DEBUG == "true";
+const googleApiKey = process.env.GOOGLE_API_KEY || "";
+const googleSearchId = process.env.GOOGLE_SEARCH_ID || "";
+let openAIEnableInternet = process.env.OPENAI_ENABLE_INTERNET == "true";
 let chatType = process.env.TYPE || "TOKEN";
 let reversePool: any[] = [
-    "https://gpt.pawan.krd/backend-api/conversation",
-    "https://server.chatgpt.yt/api/conversation",
-    "https://chat.duti.tech/api/conversation"
+    // "https://gpt.pawan.krd/backend-api/conversation",
+    // "https://server.chatgpt.yt/api/conversation",
+    // "https://chat.duti.tech/api/conversation"
 ];
 
 //如果单独提供了反代，则加到第一个
@@ -194,7 +194,8 @@ const html2Text = compile({
 app.message(async ({message, say}) => {
     console.log(`on_message: ${JSON.stringify(message)}\r\n`);
     console.log('===========================================================\r\n');
-
+    console.log('openAIEnableInternet1:' + openAIEnableInternet);
+    console.log('chatDebug:' + chatDebug);
     //非正常消息
     if (message.type !== "message" || message.subtype || message.bot_id || !message.text || message.text === "reset") {
         return;
@@ -230,6 +231,7 @@ app.message(async ({message, say}) => {
 
     let prompt = message.text;
     //从搜索引擎中搜索
+    console.log('openAIEnableInternet2:' + openAIEnableInternet);
     if (openAIEnableInternet) {
         const searchText = await getGoogleSearchFirstResultText(prompt);
         console.log(`searchText: ${searchText} `);
