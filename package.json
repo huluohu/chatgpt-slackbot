@@ -14,7 +14,7 @@
   "license": "MIT",
   "dependencies": {
     "@slack/bolt": "^3.12.2",
-    "chatgpt": "^5.0.9",
+    "chatgpt": "^5.0.10",
     "debounce-promise": "^3.1.2",
     "delay": "^5.0.0",
     "dotenv-safe": "^8.2.0",

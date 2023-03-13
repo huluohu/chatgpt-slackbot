@@ -3,7 +3,9 @@ import {ChatGPTAPI, ChatGPTUnofficialProxyAPI, ChatMessage} from 'chatgpt'
 import debounce from 'debounce-promise';
 import {compile} from 'html-to-text';
 
-dotenv.config();
+dotenv.config({
+    example: '.example'
+});
 const KEY_TYPE: string = "KEY";
 const TOKEN_TYPE: string = "TOKEN";
 const openaiTimeout = Number(process.env.OPENAI_TIME_OUT) || 5000;
@@ -14,9 +16,9 @@ const googleSearchId = process.env.GOOGLE_SEARCH_ID || "";
 let openAIEnableInternet = process.env.OPENAI_ENABLE_INTERNET == "true";
 let chatType = process.env.TYPE || "TOKEN";
 let reversePool: any[] = [
-    // "https://gpt.pawan.krd/backend-api/conversation",
     // "https://server.chatgpt.yt/api/conversation",
-    // "https://chat.duti.tech/api/conversation"
+    "https://bypass.duti.tech/api/conversation",
+    "https://gpt.pawan.krd/backend-api/conversation"
 ];
 
 //如果单独提供了反代，则加到第一个

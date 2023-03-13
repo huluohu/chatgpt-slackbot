@@ -1,7 +1,7 @@
 FROM node:18
 WORKDIR /app
-ADD package.json package-lock.json app.ts .env.example /app/
-
+ADD package.json package-lock.json app.ts .example README.md /app/
+#ADD --exclude='.env' . /app/
 #RUN apt update
 #RUN apt install chromium -y
 #ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD true
