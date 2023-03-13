@@ -4,7 +4,7 @@ import debounce from 'debounce-promise';
 import {compile} from 'html-to-text';
 
 dotenv.config({
-    example: '.example'
+    example: 'example.env'
 });
 const KEY_TYPE: string = "KEY";
 const TOKEN_TYPE: string = "TOKEN";
