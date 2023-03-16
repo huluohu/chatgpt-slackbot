@@ -2,6 +2,7 @@ import dotenv from 'dotenv-safe'
 import {ChatGPTAPI, ChatGPTUnofficialProxyAPI, ChatMessage} from 'chatgpt'
 import debounce from 'debounce-promise';
 import {compile} from 'html-to-text';
+import * as fs from 'fs'
 
 dotenv.config({
     example: 'example.env'
@@ -20,6 +21,9 @@ let reversePool: any[] = [
     "https://bypass.duti.tech/api/conversation",
     "https://gpt.pawan.krd/backend-api/conversation"
 ];
+
+const promptFile = fs.readFileSync('prompt.json','utf-8');
+const promptJson = JSON.parse(promptFile);
 
 //如果单独提供了反代，则加到第一个
 if (process.env.OPENAI_REVERSE_EXTRA) {
@@ -322,17 +326,6 @@ app.event('app_mention', async ({event, context, client, say}) => {
             text: `<@${event.user}> You asked:\n>${question}\n${answer.text} :end:`,
             payload: answer,
         });
-        // const {
-        //     text,
-        //     conversationId: newConversationId,
-        //     id: newParentMessageId
-        // } = await sendChatOnly(chatType, question, parentMessageId, conversationId);
-        // conversationId = newConversationId || conversationId;
-        // parentMessageId = newParentMessageId || parentMessageId;
-        // await say({
-        //     channel: event.channel,
-        //     text: `<@${event.user}> You asked:\n>${question}\n${text}`,
-        // });
     } catch (error) {
         console.log(error);
 
@@ -345,6 +338,17 @@ app.event('app_mention', async ({event, context, client, say}) => {
         await say(friendlyErrorMsg);
     }
 
+});
+
+// 监听 `/hello` 命令
+app.command('/neko', async ({ command, ack, say }) => {
+   console.log('command:' + command);
+  // 确认收到了命令
+   await ack();
+   resetSession();
+
+  // 回复用户
+   await say(`喵，主人~`);
 });
 
 function resetSession() {
