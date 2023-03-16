@@ -43,7 +43,8 @@ const keyChat = new ChatGPTAPI({
     debug: chatDebug,
     completionParams: {
         // model: 'gpt-4',
-        max_tokens: 1200
+        max_tokens: 1200,
+        temperature: 0.9
     },
     fetch: openaiProxy ? (url, options = {}) => {
         const defaultOptions = {
@@ -94,6 +95,7 @@ async function sendChatOnAppProgress(type, prompt, parentMessageId, conversation
         parentMessageId: parentMessageId,
         conversationId: conversationId,
         timeoutMs: openaiTimeout,
+        // systemMessage: "你是一名人工智能开发人员，你熟悉关于构建人工智能系统的各种知识和技能",
         onProgress: async (answer) => {
             // Real-time update
             // console.log('answer:' + answer.text + "\r\n");
@@ -210,7 +212,7 @@ app.message(async ({message, say}) => {
         chatType = type;
         await say({
             channel,
-            text: `已设置${type === KEY_TYPE ? "KEY" : "TOKEN"}模式`,
+            text: `已设置${type === KEY_TYPE ? "KEY" : "TOKEN【不建议使用，账号有被ban风险】"}模式`,
         });
     }
 
